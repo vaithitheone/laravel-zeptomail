@@ -13,7 +13,7 @@ You can add ZeptoMail driver to send emails from your Laravel application. As a 
 
 Navigate to the application's root folder and paste the following code.
 
-```composer require zohomail/laravel-zeptomail:^1.0```
+```composer require zohomail/laravel-zeptomail:dev-main```
 
 Next, you should set ZeptoMail as a mail transport. Follow the steps given [in this section](https://laravel.com/docs/10.x/mail#custom-transports) to add and define a custom transport. Next, you can add the mailer definition within your application's **config/mail.php** configuration file
 
@@ -23,7 +23,10 @@ Once you configure mail transport, add the following parameters in the **.env fi
 
 Add ZeptoMail's API token in the .env file using the following command. Copy the Send Mail token from the desired Mail Agent and paste it in this column.
 
-```ZEPTOMAIL_API_key ="<SEND_MAIL_TOKEN>"```
+```
+ZEPTOMAIL_HOST=zoho.com
+ZEPTOMAIL_TOKEN="SEND_MAIL_TOKEN"
+```
 
 Set the **MAIL\_MAILER** variable to ZeptoMail.
 
@@ -31,9 +34,10 @@ Set the **MAIL\_MAILER** variable to ZeptoMail.
 
 Add the FROM address available in the .env file
 
-```MAIL_FROM_ADDRESS=invoice@zylker.com 
-MAIL_FROM_NAME="App Name"   ```
-
+```
+MAIL_FROM_ADDRESS=invoice@zylker.com 
+MAIL_FROM_NAME="App Name"
+```
 **Sending test email**
 
 You can check the configuration by sending a test email. You can use the Tinker configuration to do so.
