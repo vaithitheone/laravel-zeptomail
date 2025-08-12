@@ -34,25 +34,29 @@ class ZeptoMailTransport implements TransportInterface
         ]);
     }
 
-    public function send(RawMessage $message, Envelope $envelope = null): ?SentMessage
+    public function send(RawMessage $message, ?Envelope $envelope = null): ?SentMessage
     {
-        try{
+        try {
             $urlToSend = $this->getEndpoint();
             $email = MessageConverter::toEmail($message);
-            $data = $this->getPayload($email,$envelope);
+            $data = $this->getPayload($email, $envelope);
             $data["from"] = $this->getFrom($message);
-            $response = $this->client->post($urlToSend,[ 'headers' => [
-                'Authorization' =>  $this->apikey,
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-                'user-agent' => 'Laravel'
-            ],
-                'json' => $data]);
+            $response = $this->client->post($urlToSend, [
+                'headers' => [
+                    'Authorization' => $this->apikey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                    'User-Agent' => 'Laravel'
+                ],
+                'json' => $data
+            ]);
+            dd($response);
         } catch (ConnectException $e) {
             Log::error('Connection error: ' . $e->getMessage());
             throw new \RuntimeException('Failed to connect to mail server.', 0, $e);
 
-        } catch (RequestException $e) {
+        } catch
+        (RequestException $e) {
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
                 $errorBody = $e->getResponse()->getBody()->getContents();
@@ -64,7 +68,7 @@ class ZeptoMailTransport implements TransportInterface
             }
 
         } catch (\Throwable $e) {
-            Log::error('Unexpected error: ' . $e->getMessage());
+            Log::error('Unexpected error: ' . $e->getMessage(),['trace' => $e->getTraceAsString()]);
             throw new \RuntimeException('An unexpected error occurred while sending mail.', 0, $e);
         }
 
@@ -81,6 +85,7 @@ class ZeptoMailTransport implements TransportInterface
     {
         return 'zeptomail';
     }
+
     protected function getFrom(RawMessage $message): array
     {
         $from = $message->getFrom();
@@ -91,18 +96,30 @@ class ZeptoMailTransport implements TransportInterface
 
         return ['email' => '', 'name' => ''];
     }
+
     /**
-     * @return string|null
+     * @return string
      */
-    private function getEndpoint(): ?string
+    private function getEndpoint(): string
     {
-        if (isset($this->domainMapping[$this->host])) {
-            return "https://zeptomail.".$this->domainMapping[$this->host].'/v1.1/email';
+        $host = trim($this->host ?? '', '/');
+
+        if (empty($host)) {
+            throw new \InvalidArgumentException('ZeptoMail host is not configured.');
         }
 
-        return $this->host . '/v1.1/email';
+        if (isset($this->domainMapping[$host])) {
+            return "https://zeptomail." . $this->domainMapping[$host] . '/v1.1/email';
+        }
 
+        // Ensure no accidental "https://https://" duplication
+        if (!preg_match('#^https?://#i', $host)) {
+            $host = 'https://' . $host;
+        }
+
+        return rtrim($host, '/') . '/v1.1/email';
     }
+
     /**
      * @param Email $email
      * @param Envelope $envelope
@@ -111,32 +128,30 @@ class ZeptoMailTransport implements TransportInterface
     private function getPayload(Email $email, Envelope $envelope): array
     {
         $recipients = $this->getRecipients($email, $envelope);
-        $toaddress = $this->getEmailDetailsByType($recipients,'to');
-        $ccaddress = $this->getEmailDetailsByType($recipients,'cc');
-        $bccaddress = $this->getEmailDetailsByType($recipients,'bcc');
+        $toaddress = $this->getEmailDetailsByType($recipients, 'to');
+        $ccaddress = $this->getEmailDetailsByType($recipients, 'cc');
+        $bccaddress = $this->getEmailDetailsByType($recipients, 'bcc');
         $attachmentJSONArr = array();
         $payload = [
 
             'subject' => $email->getSubject()
         ];
-        if($email->getHtmlBody() != null) {
+        if ($email->getHtmlBody() != null) {
             $payload['htmlbody'] = $email->getHtmlBody();
-        }
-        else {
+        } else {
             $payload['htmlbody'] = $email->getTextBody();
         }
 
 
-        if(isset($toaddress) && !empty($toaddress)) {
-            $payload['to'] =$toaddress;
+        if (isset($toaddress) && !empty($toaddress)) {
+            $payload['to'] = $toaddress;
         }
-        if(isset($ccaddress) && !empty($ccaddress)) {
-            $payload['cc'] =$ccaddress;
+        if (isset($ccaddress) && !empty($ccaddress)) {
+            $payload['cc'] = $ccaddress;
         }
-        if(isset($bccaddress) && !empty($bccaddress)) {
-            $payload['bcc'] =$bccaddress;
+        if (isset($bccaddress) && !empty($bccaddress)) {
+            $payload['bcc'] = $bccaddress;
         }
-
 
 
         foreach ($email->getAttachments() as $attachment) {
@@ -157,13 +172,14 @@ class ZeptoMailTransport implements TransportInterface
 
             $attachmentJSONArr[] = $att;
         }
-        if(isset($attachmentJSONArr)) {
+        if (isset($attachmentJSONArr)) {
             $payload['attachments'] = $attachmentJSONArr;
         }
 
 
         return $payload;
     }
+
     /**
      * @param Email $email
      * @param Envelope $envelope
@@ -196,18 +212,19 @@ class ZeptoMailTransport implements TransportInterface
 
         return $recipients;
     }
-    protected function getEmailDetailsByType(array $recipients,string $type): array
+
+    protected function getEmailDetailsByType(array $recipients, string $type): array
     {
         $sendmailaddress = [];
         foreach ($recipients as $recipient) {
-            if($type === $recipient['type']){
+            if ($type === $recipient['type']) {
                 $emailDetail = [
                     'address' => $recipient['email']
                 ];
-                if(isset($recipient['name'])) {
+                if (isset($recipient['name'])) {
                     $emailDetail['name'] = $recipient['name'];
                 }
-                $emailDetails = ['email_address' =>$emailDetail];
+                $emailDetails = ['email_address' => $emailDetail];
                 $sendmailaddress[] = $emailDetails;
             }
 
@@ -216,14 +233,14 @@ class ZeptoMailTransport implements TransportInterface
     }
 
     public $domainMapping = [
-        "zoho.com"          => "zoho.com",
-        "zoho.eu"           => "zoho.eu",
-        "zoho.in"           => "zoho.in",
-        "zoho.com.cn"       => "zoho.com.cn",
-        "zoho.com.au"       => "zoho.com.au",
-        "zoho.jp"           => "zoho.jp",
-        "zohocloud.ca"      => "zohocloud.ca",
-        "zoho.sa"           => "zoho.sa"
+        "zoho.com" => "zoho.com",
+        "zoho.eu" => "zoho.eu",
+        "zoho.in" => "zoho.in",
+        "zoho.com.cn" => "zoho.com.cn",
+        "zoho.com.au" => "zoho.com.au",
+        "zoho.jp" => "zoho.jp",
+        "zohocloud.ca" => "zohocloud.ca",
+        "zoho.sa" => "zoho.sa"
     ];
 
 
