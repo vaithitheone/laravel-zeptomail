@@ -50,7 +50,6 @@ class ZeptoMailTransport implements TransportInterface
                 ],
                 'json' => $data
             ]);
-            dd($response);
         } catch (ConnectException $e) {
             Log::error('Connection error: ' . $e->getMessage());
             throw new \RuntimeException('Failed to connect to mail server.', 0, $e);
@@ -74,11 +73,6 @@ class ZeptoMailTransport implements TransportInterface
 
 
         return new SentMessage($message, $envelope);
-    }
-
-    public function registerPlugin(Swift_Events_EventListener $plugin)
-    {
-        // No plugins needed
     }
 
     public function __toString(): string
