@@ -22,13 +22,16 @@ class ZeptoMailTransport implements TransportInterface
 {
     protected string $apikey;
     protected string $host;
+    protected array $clientOptions;
     protected HttpClient $client;
 
-    public function __construct(string $apikey, string $host)
+    public function __construct(string $apikey, string $host, $clientOptions)
     {
         $this->apikey = $apikey;
         $this->host = $host;
-        $this->client = new HttpClient();
+        $this->client = new HttpClient([
+            'verify' => $clientOptions['verify'] ?? true, // SSL verification
+        ]);
     }
 
     public function send(RawMessage $message, Envelope $envelope = null): ?SentMessage
@@ -44,7 +47,7 @@ class ZeptoMailTransport implements TransportInterface
                 'Content-Type' => 'application/json',
                 'user-agent' => 'Laravel'
             ],
-            'json' => $data]);
+                'json' => $data]);
         } catch (ConnectException $e) {
             Log::error('Connection error: ' . $e->getMessage());
             throw new \RuntimeException('Failed to connect to mail server.', 0, $e);
@@ -64,8 +67,8 @@ class ZeptoMailTransport implements TransportInterface
             Log::error('Unexpected error: ' . $e->getMessage());
             throw new \RuntimeException('An unexpected error occurred while sending mail.', 0, $e);
         }
-        
-        
+
+
         return new SentMessage($message, $envelope);
     }
 
@@ -73,7 +76,7 @@ class ZeptoMailTransport implements TransportInterface
     {
         // No plugins needed
     }
-    
+
     public function __toString(): string
     {
         return 'zeptomail';
@@ -93,10 +96,14 @@ class ZeptoMailTransport implements TransportInterface
      */
     private function getEndpoint(): ?string
     {
+        if (isset($this->domainMapping[$this->host])) {
+            return "https://zeptomail.".$this->domainMapping[$this->host].'/v1.1/email';
+        }
 
-        return "https://zeptomail.".$this->domainMapping[$this->host].'/v1.1/email';
+        return $this->host . '/v1.1/email';
+
     }
-        /**
+    /**
      * @param Email $email
      * @param Envelope $envelope
      * @return array
@@ -109,7 +116,7 @@ class ZeptoMailTransport implements TransportInterface
         $bccaddress = $this->getEmailDetailsByType($recipients,'bcc');
         $attachmentJSONArr = array();
         $payload = [
-            
+
             'subject' => $email->getSubject()
         ];
         if($email->getHtmlBody() != null) {
@@ -118,8 +125,8 @@ class ZeptoMailTransport implements TransportInterface
         else {
             $payload['htmlbody'] = $email->getTextBody();
         }
-       
-        
+
+
         if(isset($toaddress) && !empty($toaddress)) {
             $payload['to'] =$toaddress;
         }
@@ -130,10 +137,10 @@ class ZeptoMailTransport implements TransportInterface
             $payload['bcc'] =$bccaddress;
         }
 
-        
+
 
         foreach ($email->getAttachments() as $attachment) {
-            
+
             $headers = $attachment->getPreparedHeaders();
             $disposition = $headers->getHeaderBody('Content-Disposition');
             $filename = $headers->getHeaderParameter('Content-Disposition', 'filename');
@@ -142,7 +149,7 @@ class ZeptoMailTransport implements TransportInterface
                 'content' => base64_encode($attachment->getBody()),
                 'name' => $filename,
                 'mime_type' => $headers->get('Content-Type')->getBody()
-              ];
+            ];
 
             if ($name = $headers->getHeaderParameter('Content-Disposition', 'name')) {
                 $att['name'] = $name;
@@ -153,11 +160,11 @@ class ZeptoMailTransport implements TransportInterface
         if(isset($attachmentJSONArr)) {
             $payload['attachments'] = $attachmentJSONArr;
         }
-        
+
 
         return $payload;
     }
-      /**
+    /**
      * @param Email $email
      * @param Envelope $envelope
      * @return array
@@ -196,27 +203,27 @@ class ZeptoMailTransport implements TransportInterface
             if($type === $recipient['type']){
                 $emailDetail = [
                     'address' => $recipient['email']
-                    ];
+                ];
                 if(isset($recipient['name'])) {
                     $emailDetail['name'] = $recipient['name'];
                 }
                 $emailDetails = ['email_address' =>$emailDetail];
                 $sendmailaddress[] = $emailDetails;
             }
-           
+
         }
         return $sendmailaddress;
     }
 
     public $domainMapping = [
-		"zoho.com"          => "zoho.com",
-		"zoho.eu"           => "zoho.eu", 
-		"zoho.in"           => "zoho.in", 
-		"zoho.com.cn"       => "zoho.com.cn",
-		"zoho.com.au"       => "zoho.com.au",
-		"zoho.jp"           => "zoho.jp",
-		"zohocloud.ca"      => "zohocloud.ca",
-		"zoho.sa"           => "zoho.sa"
+        "zoho.com"          => "zoho.com",
+        "zoho.eu"           => "zoho.eu",
+        "zoho.in"           => "zoho.in",
+        "zoho.com.cn"       => "zoho.com.cn",
+        "zoho.com.au"       => "zoho.com.au",
+        "zoho.jp"           => "zoho.jp",
+        "zohocloud.ca"      => "zohocloud.ca",
+        "zoho.sa"           => "zoho.sa"
     ];
 
 
