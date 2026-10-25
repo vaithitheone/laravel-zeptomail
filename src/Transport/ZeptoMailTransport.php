@@ -56,9 +56,13 @@ class ZeptoMailTransport implements TransportInterface
 
         } catch
         (RequestException $e) {
-            if ($e->hasResponse()) {
-                $statusCode = $e->getResponse()->getStatusCode();
-                $errorBody = $e->getResponse()->getBody()->getContents();
+            // Guzzle 7 puts the response on RequestException (hasResponse/getResponse); Guzzle 8 only on
+            // its ResponseException subclass. Read it the same way on both.
+            $response = method_exists($e, 'getResponse') ? $e->getResponse() : null;
+
+            if ($response instanceof ResponseInterface) {
+                $statusCode = $response->getStatusCode();
+                $errorBody = $response->getBody()->getContents();
                 Log::error("Mail API error: HTTP $statusCode", ['response' => $errorBody]);
                 throw new \RuntimeException("Mail API error: $errorBody", 0, $e);
             } else {
